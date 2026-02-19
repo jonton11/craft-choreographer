@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Craft Choreographer workflow state",
+  "description": "State file for the Craft Choreographer workflow (.craft/state.json)",
+  "type": "object",
+  "properties": {
+    "phase": {
+      "type": "string",
+      "enum": ["idle", "investigating", "planning", "awaiting_approval", "executing", "done"],
+      "description": "Current workflow phase"
+    },
+    "initial_prompt": {
+      "type": "string",
+      "description": "User's loose goal from /craft <goal>"
+    },
+    "investigation_output": {
+      "type": "string",
+      "description": "Output from the Investigator agent"
+    },
+    "plan_output": {
+      "description": "Output from the Planner (string or structured object with pieces, order, acceptance_criteria)"
+    },
+    "approved": {
+      "type": "boolean",
+      "description": "True after user approves the plan"
+    },
+    "piece_index": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Current piece index (0-based) in executing phase"
+    },
+    "executing_substep": {
+      "type": "string",
+      "enum": ["writer", "chore", "test_run"],
+      "description": "When phase is executing: which agent to run next"
+    },
+    "pieces": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
+          "order": { "type": "integer" }
+        }
+      },
+      "description": "List of pieces from the plan"
+    },
+    "last_step_output": {
+      "type": "string",
+      "description": "Output from the last completed step (Writer, Chore, etc.) for chaining"
+    },
+    "scope_creep_detected": {
+      "type": "boolean",
+      "description": "If true, workflow requires human approval before continuing"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last state update"
+    }
+  },
+  "required": ["phase"]
+}
