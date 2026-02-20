@@ -1,0 +1,5 @@
+# Craft Choreographer workflow state (user-local; do not commit)
+.craft/state.json
+
+# Local archive (design references; not published)
+docs/archive/
