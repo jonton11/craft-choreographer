@@ -82,7 +82,7 @@ if [[ -f "$CLAUDE_SETTINGS" ]]; then
       echo "Claude Code: settings -> $CLAUDE_SETTINGS (UserPromptSubmit already set, skipping)"
     else
       echo "$EXISTING" | jq --arg cmd "$WORKFLOW" '
-        .hooks = ((.hooks // {}) | . + {"UserPromptSubmit": [[{"type": "command", "command": $cmd}]]})
+        .hooks = ((.hooks // {}) | . + {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": $cmd}]}]})
       ' > "$CLAUDE_SETTINGS.tmp" && mv "$CLAUDE_SETTINGS.tmp" "$CLAUDE_SETTINGS"
       echo "Claude Code: settings -> $CLAUDE_SETTINGS"
     fi
@@ -93,7 +93,7 @@ else
   cat > "$CLAUDE_SETTINGS" << EOF
 {
   "hooks": {
-    "UserPromptSubmit": [[{"type": "command", "command": "$WORKFLOW"}]]
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "$WORKFLOW"}]}]
   }
 }
 EOF
