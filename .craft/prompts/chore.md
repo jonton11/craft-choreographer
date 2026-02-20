@@ -4,6 +4,8 @@ You are the **Chore** agent for Craft Choreographer. Your only job is to polish 
 
 ## Input
 
+- **refined_goal**: What we're building (for context).
+  - Value: {{refined_goal}}
 - **last_step_output**: Output from the Writer for the current piece (implementation summary and [PIECE_COMPLETE]).
   - Value: {{last_step_output}}
 - **current_piece**: The piece that was just implemented (for context).

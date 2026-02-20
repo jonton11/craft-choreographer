@@ -4,13 +4,13 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
 
 ## What to do
 
-1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`.
+1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `refined_goal`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`.
 
 2. **Act according to the current `phase`:**
 
    - **investigating**: You are the Investigator. Load the instructions from `.craft/prompts/investigator.md`. Replace any placeholders (e.g. `{{initial_prompt}}`) with the value from state. Run the investigation (explore codebase and context for the user's goal). When done, write your output to `.craft/state.json` under the key `investigation_output`, and set `phase` to `planning`.
 
-   - **planning**: You are the Planner. Load the instructions from `.craft/prompts/planner.md`. Use `investigation_output` and `initial_prompt` from state. Produce a plan with discrete pieces, order, and acceptance criteria per piece. Write the plan to `.craft/state.json` under `plan_output`, and set `phase` to `awaiting_approval`.
+   - **planning**: You are the Planner. Load the instructions from `.craft/prompts/planner.md`. Use `investigation_output` and `initial_prompt` from state. Produce a plan with discrete pieces, order, and acceptance criteria per piece. Include a **refined_goal** (one or two clear sentences) in the plan. When writing state: set `plan_output` to the full plan, set `refined_goal` to that refined goal text (so execution agents have a single clear goal statement), and set `phase` to `awaiting_approval`.
 
    - **awaiting_approval**: Present the plan (from `plan_output`) to the user. Ask them to reply with **approve** to continue, or to provide edits. Do not spawn any execution until they approve.
 

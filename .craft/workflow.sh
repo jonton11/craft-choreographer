@@ -57,8 +57,9 @@ is_approval() {
 # Fill template placeholders from state (safe for JSON string)
 fill_template() {
   local template="$1"
-  local initial_prompt investigation_output plan_output current_piece last_step_output
+  local initial_prompt refined_goal investigation_output plan_output current_piece last_step_output
   initial_prompt=$(jq -r '.initial_prompt // "" | gsub("\\"; "\\\\") | gsub("\n"; " ")' "$STATE_PATH" 2>/dev/null || echo "")
+  refined_goal=$(jq -r '.refined_goal // .initial_prompt // "" | gsub("\\"; "\\\\") | gsub("\n"; " ")' "$STATE_PATH" 2>/dev/null || echo "")
   investigation_output=$(jq -r '.investigation_output // "" | gsub("\\"; "\\\\") | gsub("\n"; " ")' "$STATE_PATH" 2>/dev/null || echo "")
   plan_output=$(jq -r '.plan_output // "" | if type == "string" then . else (. | tostring) end | gsub("\\"; "\\\\") | gsub("\n"; " ")' "$STATE_PATH" 2>/dev/null || echo "")
   current_piece=$(jq -r '.pieces[.piece_index // 0] // {} | tostring | gsub("\\"; "\\\\") | gsub("\n"; " ")' "$STATE_PATH" 2>/dev/null || echo "")
@@ -66,6 +67,7 @@ fill_template() {
 
   echo "$template" | \
     sed "s|{{initial_prompt}}|${initial_prompt}|g" | \
+    sed "s|{{refined_goal}}|${refined_goal}|g" | \
     sed "s|{{investigation_output}}|${investigation_output}|g" | \
     sed "s|{{plan_output}}|${plan_output}|g" | \
     sed "s|{{current_piece}}|${current_piece}|g" | \
