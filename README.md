@@ -43,6 +43,16 @@ Further detail lives in `docs/` (see [Docs](#docs) below).
 3. **Dependencies**: The workflow script uses `jq` for JSON. Install if needed (e.g. `brew install jq` on macOS).
 4. **State**: `.craft/state.json` is gitignored; it is created automatically when you run `/craft`. Do not commit it.
 
+## How `.craft/state.json` is used
+
+The state file is the workflow’s **memory**: it persists between steps and between runs so the framework always knows where you are and what to do next.
+
+- **Workflow script** (`.craft/workflow.sh`): On each hook run it **reads** state to get `phase`, `initial_prompt`, `investigation_output`, `plan_output`, `piece_index`, `executing_substep`, etc. When you send `/craft` or approve the plan, it **writes** updates (e.g. set `phase` to `investigating` or `executing`, set `initial_prompt`). For Claude Code it also uses state to **fill** the current agent prompt template (e.g. inject `{{initial_prompt}}`, `{{investigation_output}}`) before returning context to the model.
+- **Orchestrator** (Cursor: `.cursor/commands/craft.md`): Tells the model to read state, run the right agent for the current phase, and **write** that agent’s output back into state (e.g. `investigation_output`, `plan_output`, `last_step_output`) and advance `phase` or `executing_substep` so the next step runs correctly.
+- **Result**: Each step reads “what’s been done and what’s next” from state, and writes “what I just did” back. No workflow logic lives in the chat history; the single source of truth is the state file. It’s gitignored so your in-progress state stays local and isn’t committed when you use the repo across machines.
+
+See [docs/workflow-state.md](docs/workflow-state.md) for the full state schema and phase transitions.
+
 ## Agents used in the flow
 
 The framework uses these agents throughout the job (deconstruct, spawn, execute, polish, CI). They are the building blocks that assist each step.
