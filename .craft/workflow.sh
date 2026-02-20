@@ -5,8 +5,9 @@
 
 set -e
 
+# Resolve directory containing this script (install dir when run globally)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CRAFT_DIR="${CRAFT_DIR:-.craft}"
-PROMPTS_DIR="$CRAFT_DIR/prompts"
 STATE_FILE="$CRAFT_DIR/state.json"
 
 # Read hook input from stdin
@@ -18,14 +19,27 @@ ROOT=$(echo "$INPUT" | jq -r 'if .cwd then .cwd elif .workspace_roots then .work
 if [[ -z "$ROOT" ]]; then
   ROOT="."
 fi
-STATE_PATH="$ROOT/$STATE_FILE"
-PROMPTS_PATH="$ROOT/$PROMPTS_DIR"
+# Normalize ROOT to absolute path when possible
+if [[ -d "$ROOT" ]]; then
+  ROOT="$(cd "$ROOT" && pwd)"
+fi
+STATE_PATH="$ROOT/.craft/state.json"
+# Prompts: use project's .craft/prompts if present, else install dir (global "use anywhere" mode)
+if [[ -d "$ROOT/.craft/prompts" ]]; then
+  PROMPTS_PATH="$ROOT/.craft/prompts"
+else
+  PROMPTS_PATH="$SCRIPT_DIR/prompts"
+fi
 
-# Ensure state file exists with at least phase
+# Ensure state file exists with at least phase; in global mode, symlink .craft/prompts into project so Cursor can read it
 ensure_state() {
   if [[ ! -f "$STATE_PATH" ]]; then
     mkdir -p "$(dirname "$STATE_PATH")"
     echo '{"phase":"idle"}' > "$STATE_PATH"
+  fi
+  # If project has no prompts dir but install does, symlink so workspace has .craft/prompts (for Cursor orchestrator)
+  if [[ ! -d "$ROOT/.craft/prompts" ]] && [[ -d "$SCRIPT_DIR/prompts" ]]; then
+    ln -sf "$SCRIPT_DIR/prompts" "$ROOT/.craft/prompts"
   fi
 }
 
