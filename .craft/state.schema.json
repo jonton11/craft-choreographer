@@ -20,6 +20,10 @@
     "plan_output": {
       "description": "Output from the Planner (string or structured object with pieces, order, acceptance_criteria)"
     },
+    "refined_goal": {
+      "type": "string",
+      "description": "One-sentence goal statement from the Planner; used by execution agents as the single source of truth for what we're building"
+    },
     "approved": {
       "type": "boolean",
       "description": "True after user approves the plan"

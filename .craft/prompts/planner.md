@@ -20,9 +20,12 @@ Do **not** implement anything. Only produce the plan. The plan will be shown to 
 
 ## Output format
 
-Produce the plan in YAML or JSON so it can be stored and parsed. Example structure:
+Produce the plan in YAML or JSON so it can be stored and parsed. Include a **refined_goal**: one or two clear sentences that restate the user's goal in unambiguous form. Downstream agents will use this as the single source of truth for "what we're building."
+
+Example structure:
 
 ```yaml
+refined_goal: "Add user authentication: sign-up, login, logout, and session handling, with tests and no new dependencies beyond those already in the project."
 pieces:
   - id: 1
     title: "Data migration for X"
@@ -44,4 +47,4 @@ pieces:
       - "E2E or integration test passes"
 ```
 
-When you are done, the orchestrator will update state: set `plan_output` to this plan and set `phase` to `awaiting_approval`. The user will then be asked to approve or edit the plan.
+When you are done, the orchestrator will update state: set `plan_output` to this plan, set `refined_goal` to your refined_goal text (so downstream agents get a single clear goal statement), and set `phase` to `awaiting_approval`. The user will then be asked to approve or edit the plan.

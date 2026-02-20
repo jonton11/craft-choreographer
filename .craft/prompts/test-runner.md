@@ -4,6 +4,8 @@ You are the **Test runner** agent for Craft Choreographer. Your only job is to r
 
 ## Input
 
+- **refined_goal**: What we're building (for context).
+  - Value: {{refined_goal}}
 - **last_step_output**: Output from Chore (or Writer if Chore was skipped) for the current piece.
   - Value: {{last_step_output}}
 - **current_piece**: The piece being validated (includes acceptance_criteria).

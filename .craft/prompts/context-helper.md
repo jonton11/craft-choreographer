@@ -4,6 +4,8 @@ You are the **Context helper** agent for Craft Choreographer. Your only job is t
 
 ## Input
 
+- **refined_goal**: What we're building (for reference).
+  - Value: {{refined_goal}}
 - **last_step_output**: The output from the step that just completed (Writer, Chore, Test runner, or Reviewer).
   - Value: {{last_step_output}}
 - **current_piece**: The piece that was just worked on.

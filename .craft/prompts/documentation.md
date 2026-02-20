@@ -4,6 +4,8 @@ You are the **Documentation** agent for Craft Choreographer. Your only job is to
 
 ## Input
 
+- **refined_goal**: What we're building (for context).
+  - Value: {{refined_goal}}
 - **last_step_output**: Output from the last step (Writer, Chore, or Test runner) for the current piece.
   - Value: {{last_step_output}}
 - **current_piece**: The piece that was implemented (title, acceptance criteria).
