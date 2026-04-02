@@ -118,20 +118,23 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
 
 ## What to do
 
-1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `refined_goal`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`.
+1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `refined_goal`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`, `executing_substep`. Optional: `investigation_threads`, `piece_status`, `review_output` (see `docs/workflow-state.md`).
 
 2. **Act according to the current `phase`:**
 
-   - **investigating**: You are the Investigator. Load the instructions from `.craft/prompts/investigator.md`. Replace any placeholders (e.g. `{{initial_prompt}}`) with the value from state. Run the investigation (explore codebase and context for the user's goal). When done, write your output to `.craft/state.json` under the key `investigation_output`, and set `phase` to `planning`.
+   - **investigating**: You are the Investigator. Load the instructions from `.craft/prompts/investigator.md`. Replace any placeholders (e.g. `{{initial_prompt}}`) with the value from state. Run the investigation (explore codebase and context for the user's goal). You may use **parallel explore tasks** per that prompt; when done, ensure a single merged `investigation_output` exists, then set `phase` to `planning`.
 
    - **planning**: You are the Planner. Load the instructions from `.craft/prompts/planner.md`. Use `investigation_output` and `initial_prompt` from state. Produce a plan with discrete pieces, order, and acceptance criteria per piece. Include a **refined_goal** (one or two clear sentences) in the plan. When writing state: set `plan_output` to the full plan, set `refined_goal` to that refined goal text (so execution agents have a single clear goal statement), and set `phase` to `awaiting_approval`.
 
    - **awaiting_approval**: Present the plan (from `plan_output`) to the user. Ask them to reply with **approve** to continue, or to provide edits. Do not spawn any execution until they approve.
 
-   - **executing**: Use `executing_substep` in state to know which step to run: `writer`, `chore`, or `test_run`. For the current piece (index `piece_index` from the `pieces` array), run in order:
-     - **writer**: Load `.craft/prompts/writer.md`, implement the piece until acceptance criteria are met (Ralph-style: keep going until done). When done, write output to `last_step_output` and set `executing_substep` to `chore`.
+   - **executing**: Use `executing_substep` in state. Default order per piece: `writer` → `chore` → `test_run`. Optional: insert **`review`** between writer and chore. For the current piece (index `piece_index` from the `pieces` array):
+     - **writer**: Load `.craft/prompts/writer.md`, implement the piece until acceptance criteria are met (Ralph-style: keep going until done). When done, write output to `last_step_output` and set `executing_substep` to `chore`, **or** to `review` if this project uses an explicit review pass before chore.
+     - **review** (optional): Load `.craft/prompts/reviewer.md`. You are not the Writer; provide a fresh review of the changes for this piece. Set `review_output` (and optionally append to `last_step_output`). Then set `executing_substep` to `chore`.
      - **chore**: Load `.craft/prompts/chore.md`, polish the finished work (linter, formatter). When done, update `last_step_output` and set `executing_substep` to `test_run`.
      - **test_run**: Load `.craft/prompts/test-runner.md`, run tests for this piece and fix or report. When done, set `executing_substep` back to `writer`, increment `piece_index`. If `piece_index` is now >= length of `pieces`, set `phase` to `done`. Otherwise continue with the next piece (Writer for the new `piece_index`).
+
+     **Parallel execution of pieces:** When plan pieces are independent, the team may run multiple implementers in parallel (subagents, worktrees, separate sessions). Each branch updates **`piece_status`** (and the repo). The orchestrator merges outcomes by convention. The default is still **one piece at a time** via `piece_index`; see `docs/workflow-state.md` for optional fields and merge rules.
 
    - **done**: Summarize what was accomplished. Optionally tell the user they can run `/craft <new goal>` to start again.
 
