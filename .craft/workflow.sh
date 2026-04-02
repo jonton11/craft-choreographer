@@ -163,6 +163,9 @@ case "$PHASE" in
       writer)
         [[ -f "$PROMPTS_PATH/writer.md" ]] && TEMPLATE=$(cat "$PROMPTS_PATH/writer.md") && FILLED=$(fill_template "$TEMPLATE") && claude_output_context "$FILLED"
         ;;
+      review)
+        [[ -f "$PROMPTS_PATH/reviewer.md" ]] && TEMPLATE=$(cat "$PROMPTS_PATH/reviewer.md") && FILLED=$(fill_template "$TEMPLATE") && claude_output_context "$FILLED"
+        ;;
       chore)
         [[ -f "$PROMPTS_PATH/chore.md" ]] && TEMPLATE=$(cat "$PROMPTS_PATH/chore.md") && FILLED=$(fill_template "$TEMPLATE") && claude_output_context "$FILLED"
         ;;

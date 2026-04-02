@@ -19,8 +19,8 @@ We're building a **framework** that:
 1. **Starts from a very loose prompt** — You give a high-level, vague ask in your editor (Cursor or Claude Code).
 2. **Deconstructs it** — An LLM (using agents or workflow pieces) breaks down the prompt into a concrete plan: discrete pieces of work.
 3. **Asks you for review** — The framework presents the broken-down plan. No execution until you confirm.
-4. **Spawns subagents after confirmation** — Once you approve the plan, the framework spawns subagents to work on each piece.
-5. **Runs subagents in order until done** — Subagents work on each piece in the right order. Ralph-style persistence can ensure each piece is completed; other agents (e.g. chore) take finished work and produce a polished version.
+4. **Executes after confirmation** — Once you approve the plan, the orchestrator runs each piece (Writer → optional Review → Chore → Test runner) in order by default. You can **fan out** parallel investigators or parallel piece work via editor subagents/worktrees; results **write back** into `.craft/state.json` (see `docs/workflow-state.md`).
+5. **Runs until pieces meet acceptance** — Ralph-style persistence can ensure each piece is completed; chore polishes; optional **Reviewer** prompt gives a separate pass from the Writer.
 6. **Continues until PRs are ready** — The flow runs until the project has PRs that pass CI (with auto-fix of CI failures when possible) and are ready for your review.
 
 **End state:** PRs that pass CI and are ready for human review.
@@ -47,7 +47,11 @@ Install once, then use `/craft` (and `/craft <goal>`) in **any** project—no pe
    ```bash
    ~/craft-choreographer/scripts/install-global.sh
    ```
-   This sets **Cursor** (`~/.cursor/hooks.json`, `~/.cursor/commands/craft.md`) and **Claude Code** (`~/.claude/settings.json`, `~/.claude/skills/craft/`) so `/craft` is available in every project.
+   This sets **Cursor** (`~/.cursor/hooks.json`, `~/.cursor/commands/craft.md`) and **Claude Code** (`~/.claude/settings.json`, `~/.claude/skills/craft/`) so `/craft` is available in every project. After you `git pull` this repo, refresh the copied orchestrator files with:
+   ```bash
+   ~/craft-choreographer/scripts/install-global.sh update
+   ```
+   Run `install-global.sh help` for all commands. First-time install does not overwrite existing hooks; `update` only refreshes the Cursor command and Claude skill (not hooks).
 3. **Open any repo** and type `/craft` or `/craft <goal>`. On first use, `.craft/` and state are created in that project automatically; prompts and logic come from your clone.
 
 **Dependencies:** `jq` (e.g. `brew install jq` on macOS). No need to nest projects under this repo or run init per project.
@@ -103,8 +107,8 @@ The framework uses these agents throughout the job (deconstruct, spawn, execute,
 1. **Loose prompt** — You write a high-level prompt in your editor.
 2. **Deconstruct** — Investigator runs, then Planner (using Investigator output) breaks the prompt into a plan: pieces, order, acceptance criteria per piece.
 3. **Review** — Framework shows you the plan; you confirm or adjust. No spawns until you approve.
-4. **Spawn** — Framework spawns subagents per piece (or per role per piece), in the order defined by the plan.
-5. **Execute** — Subagents work until each piece meets its acceptance criteria (Ralph-style where useful); chore polishes finished work. PRs follow single responsibility (e.g. one PR per logical unit). Repeat until all pieces are done.
+4. **Execute (default serial)** — The orchestrator runs each plan piece in order (Writer → optional Review → Chore → Test runner). Teams may **parallelize** independent pieces or investigation via subagents/worktrees; outputs merge back through `.craft/state.json` per `docs/workflow-state.md`.
+5. **Iterate** — Work continues until each piece meets acceptance criteria (Ralph-style where useful); chore polishes; optional reviewer pass is separate from the writer. PRs follow single responsibility. Repeat until all pieces are done.
 6. **PRs + CI** — Flow continues until PRs exist, pass CI (auto-fix when possible), and are ready for your review. Scope creep → human approval required before continuing.
 
 ## Docs

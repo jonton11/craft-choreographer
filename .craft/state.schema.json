@@ -35,8 +35,25 @@
     },
     "executing_substep": {
       "type": "string",
-      "enum": ["writer", "chore", "test_run"],
-      "description": "When phase is executing: which agent to run next"
+      "enum": ["writer", "review", "chore", "test_run"],
+      "description": "When phase is executing: which agent to run next (review is optional between writer and chore)"
+    },
+    "review_output": {
+      "type": "string",
+      "description": "Optional review text when reviewer substep runs"
+    },
+    "investigation_threads": {
+      "type": "array",
+      "description": "Optional parallel investigation results before merge into investigation_output",
+      "items": { "type": "object" }
+    },
+    "investigation_merge_version": {
+      "description": "Optional marker for which merge pass produced investigation_output"
+    },
+    "piece_status": {
+      "type": "array",
+      "description": "Optional per-piece status for parallel or tracked execution",
+      "items": { "type": "object" }
     },
     "pieces": {
       "type": "array",
