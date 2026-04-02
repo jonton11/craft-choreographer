@@ -3,25 +3,53 @@
 # Run from the craft-choreographer repo. No per-project init needed—use /craft anywhere.
 #
 # Usage:
-#   /path/to/craft-choreographer/scripts/install-global.sh [--force]
+#   install-global.sh              # first-time: add hooks if missing; add command/skill if missing
+#   install-global.sh install      # same as above
+#   install-global.sh update       # refresh Cursor command + Claude skill from this repo (safe upgrade path)
+#   install-global.sh help         # show usage
 #
-# Does not overwrite existing files or hook entries. Use --force to overwrite craft command/skill.
-# Then open any repo and type /craft <goal> in Cursor or Claude Code.
+# Hooks in ~/.cursor/hooks.json and ~/.claude/settings.json are only added when missing (never overwritten).
+# Use `update` after git pull to sync orchestrator text without re-running a full install.
 
 set -e
-FORCE=""
-[[ "${1:-}" == "--force" ]] && FORCE=1
+
+usage() {
+  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CRAFT_HOME="$(cd "$SCRIPT_DIR/.." && pwd)"
 WORKFLOW="$CRAFT_HOME/.craft/workflow.sh"
+
+CMD="${1:-install}"
+case "$CMD" in
+  install) CMD=install ;;
+  update) CMD=update ;;
+  -h | --help | help)
+    usage
+    exit 0
+    ;;
+  --force)
+    echo "Note: --force is deprecated; use: $0 update" >&2
+    CMD=update
+    ;;
+  *)
+    echo "Unknown argument: $1" >&2
+    echo "Run: $0 help" >&2
+    exit 1
+    ;;
+esac
 
 if [[ ! -x "$WORKFLOW" ]]; then
   echo "Error: $WORKFLOW not found or not executable." >&2
   exit 1
 fi
 
-echo "Installing Craft Choreographer globally from: $CRAFT_HOME"
+if [[ "$CMD" == "update" ]]; then
+  echo "Updating global Craft files from: $CRAFT_HOME"
+else
+  echo "Installing Craft Choreographer globally from: $CRAFT_HOME"
+fi
 echo ""
 
 # --- Cursor: global hooks and command ---
@@ -59,10 +87,10 @@ EOF
   echo "Cursor: hooks -> $CURSOR_HOOKS"
 fi
 
-# Command: so /craft appears in Cursor chat (skip if already exists unless --force)
+# Command: so /craft appears in Cursor chat
 CURSOR_CRAFT="$CURSOR_HOME/commands/craft.md"
-if [[ -f "$CURSOR_CRAFT" ]] && [[ -z "$FORCE" ]]; then
-  echo "Cursor: command -> $CURSOR_CRAFT (already exists, skipping; use --force to overwrite)"
+if [[ -f "$CURSOR_CRAFT" ]] && [[ "$CMD" != "update" ]]; then
+  echo "Cursor: command -> $CURSOR_CRAFT (already exists, skipping; run '$0 update' to refresh)"
 else
   cp "$CRAFT_HOME/.cursor/commands/craft.md" "$CURSOR_CRAFT"
   echo "Cursor: command -> $CURSOR_CRAFT"
@@ -100,10 +128,10 @@ EOF
   echo "Claude Code: settings -> $CLAUDE_SETTINGS"
 fi
 
-# Skill: /craft available in all projects (skip if already exists unless --force)
+# Skill: /craft available in all projects
 CLAUDE_SKILL="$CLAUDE_HOME/skills/craft/SKILL.md"
-if [[ -f "$CLAUDE_SKILL" ]] && [[ -z "$FORCE" ]]; then
-  echo "Claude Code: skill -> $CLAUDE_SKILL (already exists, skipping; use --force to overwrite)"
+if [[ -f "$CLAUDE_SKILL" ]] && [[ "$CMD" != "update" ]]; then
+  echo "Claude Code: skill -> $CLAUDE_SKILL (already exists, skipping; run '$0 update' to refresh)"
 else
   cat > "$CLAUDE_SKILL" << 'SKILL_EOF'
 ---
@@ -152,4 +180,8 @@ fi
 echo ""
 echo "Done. You can use /craft in any project (Cursor and Claude Code)."
 echo "State is stored per project in .craft/state.json (created on first /craft)."
-echo "Existing hooks and craft files were left unchanged. Use --force to overwrite command/skill."
+if [[ "$CMD" == "update" ]]; then
+  echo "Refreshed Cursor command and Claude skill. Hooks were not changed (run install if you need hooks added)."
+else
+  echo "After git pull: run '$0 update' to refresh the command and skill from this repo."
+fi

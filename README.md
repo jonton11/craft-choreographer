@@ -47,7 +47,11 @@ Install once, then use `/craft` (and `/craft <goal>`) in **any** project—no pe
    ```bash
    ~/craft-choreographer/scripts/install-global.sh
    ```
-   This sets **Cursor** (`~/.cursor/hooks.json`, `~/.cursor/commands/craft.md`) and **Claude Code** (`~/.claude/settings.json`, `~/.claude/skills/craft/`) so `/craft` is available in every project.
+   This sets **Cursor** (`~/.cursor/hooks.json`, `~/.cursor/commands/craft.md`) and **Claude Code** (`~/.claude/settings.json`, `~/.claude/skills/craft/`) so `/craft` is available in every project. After you `git pull` this repo, refresh the copied orchestrator files with:
+   ```bash
+   ~/craft-choreographer/scripts/install-global.sh update
+   ```
+   Run `install-global.sh help` for all commands. First-time install does not overwrite existing hooks; `update` only refreshes the Cursor command and Claude skill (not hooks).
 3. **Open any repo** and type `/craft` or `/craft <goal>`. On first use, `.craft/` and state are created in that project automatically; prompts and logic come from your clone.
 
 **Dependencies:** `jq` (e.g. `brew install jq` on macOS). No need to nest projects under this repo or run init per project.
