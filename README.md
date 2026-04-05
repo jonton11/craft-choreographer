@@ -19,7 +19,7 @@ We're building a **framework** that:
 1. **Starts from a very loose prompt** — You give a high-level, vague ask in your editor (Cursor or Claude Code).
 2. **Deconstructs it** — An LLM (using agents or workflow pieces) breaks down the prompt into a concrete plan: discrete pieces of work.
 3. **Asks you for review** — The framework presents the broken-down plan. No execution until you confirm.
-4. **Executes after confirmation** — Once you approve the plan, the orchestrator runs each piece (Writer → optional Review → Chore → Test runner) in order by default. You can **fan out** parallel investigators or parallel piece work via editor subagents/worktrees; results **write back** into `.craft/state.json` (see `docs/workflow-state.md`).
+4. **Executes after confirmation** — Once you send **`/craft:approve`**, the orchestrator runs each piece (Writer → optional Review → Chore → Test runner) in order by default. You can **fan out** parallel investigators or parallel piece work via editor subagents/worktrees; results **write back** into `.craft/state.json` (see `docs/workflow-state.md`).
 5. **Runs until pieces meet acceptance** — Ralph-style persistence can ensure each piece is completed; chore polishes; optional **Reviewer** prompt gives a separate pass from the Writer.
 6. **Continues until PRs are ready** — The flow runs until the project has PRs that pass CI (with auto-fix of CI failures when possible) and are ready for your review.
 
@@ -76,7 +76,7 @@ That creates `.craft/` (wrapper + symlink to prompts) and copies hook/command fi
 
 The state file is the workflow’s **memory**: it persists between steps and between runs so the framework always knows where you are and what to do next.
 
-- **Workflow script** (`.craft/workflow.sh`): On each hook run it **reads** state to get `phase`, `initial_prompt`, `investigation_output`, `plan_output`, `piece_index`, `executing_substep`, etc. When you send `/craft` or approve the plan, it **writes** updates (e.g. set `phase` to `investigating` or `executing`, set `initial_prompt`). For Claude Code it also uses state to **fill** the current agent prompt template (e.g. inject `{{initial_prompt}}`, `{{investigation_output}}`) before returning context to the model.
+- **Workflow script** (`.craft/workflow.sh`): On each hook run it **reads** state to get `phase`, `initial_prompt`, `investigation_output`, `plan_output`, `piece_index`, `executing_substep`, etc. When you send `/craft` or `/craft <goal>`, or **`/craft:approve`** while a plan is waiting, it **writes** updates (e.g. set `phase` to `investigating` or `executing`, set `initial_prompt`). Approval is **only** recognized as the exact message **`/craft:approve`** (see `docs/workflow-state.md`). For Claude Code it also uses state to **fill** the current agent prompt template (e.g. inject `{{initial_prompt}}`, `{{investigation_output}}`) before returning context to the model.
 - **Orchestrator** (Cursor: `.cursor/commands/craft.md`): Tells the model to read state, run the right agent for the current phase, and **write** that agent’s output back into state (e.g. `investigation_output`, `plan_output`, `last_step_output`) and advance `phase` or `executing_substep` so the next step runs correctly.
 - **Result**: Each step reads “what’s been done and what’s next” from state, and writes “what I just did” back. No workflow logic lives in the chat history; the single source of truth is the state file. It’s gitignored so your in-progress state stays local and isn’t committed when you use the repo across machines.
 
@@ -106,7 +106,7 @@ The framework uses these agents throughout the job (deconstruct, spawn, execute,
 
 1. **Loose prompt** — You write a high-level prompt in your editor.
 2. **Deconstruct** — Investigator runs, then Planner (using Investigator output) breaks the prompt into a plan: pieces, order, acceptance criteria per piece.
-3. **Review** — Framework shows you the plan; you confirm or adjust. No spawns until you approve.
+3. **Review** — Framework shows you the plan; you adjust in chat or accept by sending **`/craft:approve`**. No spawns until the hook sees **`/craft:approve`** (see `docs/workflow-state.md`).
 4. **Execute (default serial)** — The orchestrator runs each plan piece in order (Writer → optional Review → Chore → Test runner). Teams may **parallelize** independent pieces or investigation via subagents/worktrees; outputs merge back through `.craft/state.json` per `docs/workflow-state.md`.
 5. **Iterate** — Work continues until each piece meets acceptance criteria (Ralph-style where useful); chore polishes; optional reviewer pass is separate from the writer. PRs follow single responsibility. Repeat until all pieces are done.
 6. **PRs + CI** — Flow continues until PRs exist, pass CI (auto-fix when possible), and are ready for your review. Scope creep → human approval required before continuing.

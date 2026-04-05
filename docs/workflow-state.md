@@ -9,7 +9,7 @@ Craft Choreographer uses a single state file (`.craft/state.json`) and a phase-b
 | `idle` | No active workflow. Waiting for user to send `/craft <goal>`. |
 | `investigating` | Investigator is running or should run. Input: `initial_prompt`. |
 | `planning` | Planner is running or should run. Input: `investigation_output`. |
-| `awaiting_approval` | Plan is ready. Human must reply "approve" or provide edits. No spawns until approved. |
+| `awaiting_approval` | Plan is ready. Human must send **`/craft:approve`** to accept (hook updates state) or provide edits. No spawns until approved. |
 | `executing` | Running pieces in order: Writer → Chore → Test runner (and optionally Reviewer, Context helper) per piece. |
 | `done` | All pieces complete, PRs pass CI. Optional: reset to `idle` for a new `/craft`. |
 
@@ -24,7 +24,7 @@ The state file is JSON with the following fields:
 | `investigation_output` | string | Output from the Investigator agent. |
 | `plan_output` | string or object | Output from the Planner (e.g. YAML or JSON with pieces, order, acceptance criteria). |
 | `refined_goal` | string | One-sentence goal from the Planner; execution agents use this as the single source of truth for what we're building. |
-| `approved` | boolean | True after the user approves the plan. |
+| `approved` | boolean | True after the user sends **`/craft:approve`** (workflow hook sets this with `phase: executing`). |
 | `piece_index` | number | Current piece being executed (0-based). |
 | `pieces` | array | List of pieces from the plan. Each item may have `id`, `title`, `acceptance_criteria`, `order`. |
 | `executing_substep` | string | When `phase` is `executing`: `writer` \| optional `review` \| `chore` \| `test_run`. Default path skips `review` (Writer → Chore → Test runner). |
@@ -54,14 +54,14 @@ These fields are **optional**. The default workflow uses a single model, one `in
 1. **idle** → **investigating**: User sends `/craft` or `/craft <goal>`. Script sets `initial_prompt`, `phase: "investigating"`.
 2. **investigating** → **planning**: After Investigator output is written to `investigation_output`, set `phase: "planning"`. (Orchestrator or model does the write; script may advance phase on next hook run, or the orchestrator instructs the model to update state and phase.)
 3. **planning** → **awaiting_approval**: After Planner output is written to `plan_output` and `refined_goal` is set (from the plan), set `phase: "awaiting_approval"`.
-4. **awaiting_approval** → **executing**: User replies "approve" (or equivalent). Script sets `approved: true`, `phase: "executing"`, `piece_index: 0`.
-5. **awaiting_approval** (user edits plan): Re-run Planner with edit or update `plan_output`; remain in `awaiting_approval` until user approves.
-6. **executing**: For each piece in order, run Writer (until acceptance criteria met) → optional Review → Chore → Test runner → optional Context helper. After each piece, increment `piece_index`. If scope creep detected, set `scope_creep_detected: true` and transition to **awaiting_approval** (re-gate). Parallel piece execution is supported via `piece_status` and team conventions, not by `workflow.sh` alone.
+4. **awaiting_approval** → **executing**: User sends exactly **`/craft:approve`**. Script sets `approved: true`, `phase: "executing"`, `piece_index: 0`. (Natural-language “approve” does **not** trigger the hook; orchestrator must not advance execution until state reflects this transition.)
+5. **awaiting_approval** (user edits plan): Re-run Planner with edit or update `plan_output`; remain in `awaiting_approval` until user sends **`/craft:approve`**.
+6. **executing**: For each piece in order, run Writer (until acceptance criteria met) → optional Review → Chore → Test runner → optional Context helper. After each piece, increment `piece_index`. If scope creep detected, set `scope_creep_detected: true` and transition to **awaiting_approval** (re-gate until **`/craft:approve`**). Parallel piece execution is supported via `piece_status` and team conventions, not by `workflow.sh` alone.
 7. **executing** → **done**: When `piece_index` >= length of `pieces` and PRs pass CI (and no scope creep), set `phase: "done"`.
 8. **done** → **idle**: Optional: reset state for a new `/craft` (e.g. clear outputs, set `phase: "idle"`).
 
 ## Where state is used
 
-- **Workflow script**: Reads state to decide phase; writes state when `/craft` is detected or when user says "approve". For Claude Code, script also uses state to fill the current phase's prompt template and return `additionalContext`.
-- **Cursor orchestrator** (`.cursor/commands/craft.md`): Instructs the model to read `.craft/state.json`, run the appropriate agent prompt for the current phase, and write outputs back to state (and advance phase) as needed.
+- **Workflow script**: Reads state to decide phase; writes state when `/craft` or `/craft <goal>` starts a run, or when the user sends **`/craft:approve`** while `phase` is `awaiting_approval`. For Claude Code, script also uses state to fill the current phase's prompt template and return `additionalContext`.
+- **Cursor orchestrator** (`.cursor/commands/craft.md`): Instructs the model to read `.craft/state.json`, run the appropriate agent prompt for the current phase, and write outputs back to state (and advance phase) as needed. When `phase` is **`awaiting_approval`**, if the user’s message sounds like approval but is not exactly **`/craft:approve`**, the orchestrator should **clarify** and **redirect** to **`/craft:approve`**—natural language alone does not run the hook; the agent must not advance to **`executing`** until state reflects the hook transition.
 - **Agent prompts**: Receive placeholders filled from state (e.g. `{{initial_prompt}}`, `{{refined_goal}}`, `{{investigation_output}}`, `{{plan_output}}`, `{{current_piece}}`). Execution agents prefer `refined_goal` for scope; the workflow script falls back to `initial_prompt` if `refined_goal` is missing.

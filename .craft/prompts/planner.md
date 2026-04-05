@@ -47,4 +47,4 @@ pieces:
       - "E2E or integration test passes"
 ```
 
-When you are done, the orchestrator will update state: set `plan_output` to this plan, set `refined_goal` to your refined_goal text (so downstream agents get a single clear goal statement), and set `phase` to `awaiting_approval`. The user will then be asked to approve or edit the plan.
+When you are done, the orchestrator will update state: set `plan_output` to this plan, set `refined_goal` to your refined_goal text (so downstream agents get a single clear goal statement), and set `phase` to `awaiting_approval`. The user accepts the plan by sending exactly **`/craft:approve`** (see `docs/workflow-state.md`); natural-language approval alone does not update hook-driven state.

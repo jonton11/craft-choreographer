@@ -61,11 +61,12 @@ state_set() {
   mv "$tmp" "$STATE_PATH"
 }
 
-# Normalize prompt for approval check
-is_approval() {
+# Explicit approval: only this exact user message (after trim + lower) advances phase via the hook.
+# Prevents fuzzy interpretation ("approve", "yes", etc.). Orchestrator docs must match.
+is_craft_approve() {
   local msg
   msg=$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\n' | xargs)
-  [[ "$msg" == "approve" || "$msg" == "approved" || "$msg" == "yes" ]]
+  [[ "$msg" == "/craft:approve" ]]
 }
 
 # Fill template placeholders from state (safe for JSON string)
@@ -106,19 +107,21 @@ claude_output_context() {
 
 ensure_state
 
-# Detect /craft and initialize or continue workflow
-if [[ "$PROMPT" == /craft* ]]; then
+PHASE=$(state_get "phase")
+
+# If awaiting_approval and user sent the explicit approval command, advance to executing
+# (Must run before generic /craft handling so /craft:approve does not reset to investigating.)
+if [[ "$PHASE" == "awaiting_approval" ]] && is_craft_approve "$PROMPT"; then
+  state_set '{"approved":true,"phase":"executing","piece_index":0,"executing_substep":"writer"}'
+  PHASE="executing"
+fi
+
+# Detect /craft <goal> and initialize workflow (not /craft:approve)
+if [[ "$PROMPT" == /craft* ]] && ! is_craft_approve "$PROMPT"; then
   # Extract goal: rest of line after /craft
   GOAL=$(echo "$PROMPT" | sed -n 's|^/craft[[:space:]]*||p' | xargs)
   state_set "{\"phase\":\"investigating\",\"initial_prompt\":$(jq -n --arg g "$GOAL" '$g'),\"approved\":false,\"piece_index\":0,\"executing_substep\":\"writer\"}"
-fi
-
-PHASE=$(state_get "phase")
-
-# If awaiting_approval and user said approve, advance to executing
-if [[ "$PHASE" == "awaiting_approval" ]] && is_approval "$PROMPT"; then
-  state_set '{"approved":true,"phase":"executing","piece_index":0,"executing_substep":"writer"}'
-  PHASE="executing"
+  PHASE=$(state_get "phase")
 fi
 
 # Cursor: always allow prompt to proceed; orchestrator in craft.md handles phase
@@ -154,7 +157,7 @@ case "$PHASE" in
     ;;
   awaiting_approval)
     PLAN=$(state_get "plan_output")
-    claude_output_context "Present the following plan to the user and wait for them to reply 'approve' or provide edits. Plan: $PLAN"
+    claude_output_context "Present the following plan to the user. Tell them to accept by sending exactly: /craft:approve (hook updates state). Do not suggest natural-language approval. For edits, describe changes; remain in awaiting_approval until they send /craft:approve. Plan: $PLAN"
     ;;
   executing)
     SUBSTEP=$(state_get "executing_substep")

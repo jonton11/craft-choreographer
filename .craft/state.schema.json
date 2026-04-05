@@ -26,7 +26,7 @@
     },
     "approved": {
       "type": "boolean",
-      "description": "True after user approves the plan"
+      "description": "True after user sends /craft:approve while phase is awaiting_approval (workflow hook)"
     },
     "piece_index": {
       "type": "integer",
