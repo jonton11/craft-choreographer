@@ -4,7 +4,7 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
 
 ## What to do
 
-1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `refined_goal`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`, `executing_substep`. Optional: `investigation_threads`, `piece_status`, `review_output` (see `docs/workflow-state.md`).
+1. **Read the workflow state** from `.craft/state.json`. It contains at least: `phase`, `initial_prompt`, `refined_goal`, `investigation_output`, `plan_output`, `approved`, `piece_index`, `pieces`, `last_step_output`, `executing_substep`. Optional: `investigation_threads`, `piece_status`, `review_output`, `last_diagnose_output`, `last_compact_output` (see `docs/workflow-state.md`).
 
 2. **Act according to the current `phase`:**
 
@@ -24,6 +24,10 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
      **Parallel execution of pieces:** When plan pieces are independent, the team may run multiple implementers in parallel (subagents, worktrees, separate sessions). Each branch updates **`piece_status`** (and the repo). The orchestrator merges outcomes by convention (e.g. all pieces `done` before a wave completes). The default is still **one piece at a time** via `piece_index`; see `docs/workflow-state.md` for optional fields and merge rules.
 
    - **done**: Summarize what was accomplished. Optionally tell the user they can run `/craft <new goal>` to start again.
+
+   - **diagnosing**: Load `.craft/prompts/diagnose.md`. Use the feedback and hook data the workflow injects for Claude; in Cursor, read `.craft/feedback.jsonl` (tail), `.craft/possible_conventions.json`, `.cursor/hooks.json`, and `.craft/workflow.sh` as needed. Output **proposals only**—do **not** edit `.cursor/hooks.json`, `.claude/settings.json`, or `.craft/workflow.sh` without explicit human approval. Write results to `last_diagnose_output` and set `phase` to **`idle`** when finished.
+
+   - **compacting**: Load `.craft/prompts/compact.md`. Merge feedback themes into `.craft/possible_conventions.json`. Do **not** change hook files without explicit approval. Set `last_compact_output`, then `phase` **`idle`** when finished.
 
 3. **Scope creep**: If at any time the work goes outside the approved plan, set `scope_creep_detected` to `true` in state and set `phase` to `awaiting_approval`. Use the same **ambiguous approval** rules as above: natural-language that sounds like “go ahead” does not advance state; only **`/craft:approve`** does—clarify and redirect if needed.
 

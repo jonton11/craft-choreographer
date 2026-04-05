@@ -12,6 +12,8 @@ Craft Choreographer uses a single state file (`.craft/state.json`) and a phase-b
 | `awaiting_approval` | Plan is ready. Human must send **`/craft:approve`** to accept (hook updates state) or provide edits. No spawns until approved. |
 | `executing` | Running pieces in order: Writer → Chore → Test runner (and optionally Reviewer, Context helper) per piece. |
 | `done` | All pieces complete, PRs pass CI. Optional: reset to `idle` for a new `/craft`. |
+| `diagnosing` | User sent **`/craft:diagnose`**. Diagnose agent proposes hook/workflow changes; **no auto-edits** to hooks. |
+| `compacting` | User sent **`/craft:compact`**. Merge feedback into `possible_conventions.json` per prompt. |
 
 ## State schema
 
@@ -19,7 +21,7 @@ The state file is JSON with the following fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `phase` | string | One of: `idle`, `investigating`, `planning`, `awaiting_approval`, `executing`, `done`. |
+| `phase` | string | One of: `idle`, `investigating`, `planning`, `awaiting_approval`, `executing`, `done`, `diagnosing`, `compacting`. |
 | `initial_prompt` | string | The user's loose goal (from `/craft <goal>`). |
 | `investigation_output` | string | Output from the Investigator agent. |
 | `plan_output` | string or object | Output from the Planner (e.g. YAML or JSON with pieces, order, acceptance criteria). |
@@ -32,6 +34,8 @@ The state file is JSON with the following fields:
 | `review_output` | string | Optional. Structured review from `.craft/prompts/reviewer.md` when `executing_substep` is `review`. |
 | `scope_creep_detected` | boolean | If true, workflow requires human approval before continuing. |
 | `updated_at` | string | ISO 8601 timestamp of last state update (optional). |
+| `last_diagnose_output` | string | Optional. Proposals from **`/craft:diagnose`** (human applies hook changes). |
+| `last_compact_output` | string | Optional. Summary from **`/craft:compact`**. |
 
 ### Optional fields for parallel agents and fan-out
 
@@ -62,6 +66,6 @@ These fields are **optional**. The default workflow uses a single model, one `in
 
 ## Where state is used
 
-- **Workflow script**: Reads state to decide phase; writes state when `/craft` or `/craft <goal>` starts a run, or when the user sends **`/craft:approve`** while `phase` is `awaiting_approval`. For Claude Code, script also uses state to fill the current phase's prompt template and return `additionalContext`.
+- **Workflow script**: Reads state to decide phase; writes state when `/craft` or `/craft <goal>` starts a run, when the user sends **`/craft:approve`** while `phase` is `awaiting_approval`, or when the user sends **`/craft:feedback`**, **`/craft:diagnose`**, or **`/craft:compact`** (see `docs/conventions-and-feedback.md`). For Claude Code, script also uses state to fill the current phase's prompt template and return `additionalContext`.
 - **Cursor orchestrator** (`.cursor/commands/craft.md`): Instructs the model to read `.craft/state.json`, run the appropriate agent prompt for the current phase, and write outputs back to state (and advance phase) as needed. When `phase` is **`awaiting_approval`**, if the user’s message sounds like approval but is not exactly **`/craft:approve`**, the orchestrator should **clarify** and **redirect** to **`/craft:approve`**—natural language alone does not run the hook; the agent must not advance to **`executing`** until state reflects the hook transition.
 - **Agent prompts**: Receive placeholders filled from state (e.g. `{{initial_prompt}}`, `{{refined_goal}}`, `{{investigation_output}}`, `{{plan_output}}`, `{{current_piece}}`). Execution agents prefer `refined_goal` for scope; the workflow script falls back to `initial_prompt` if `refined_goal` is missing.

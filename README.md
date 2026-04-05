@@ -111,11 +111,20 @@ The framework uses these agents throughout the job (deconstruct, spawn, execute,
 5. **Iterate** — Work continues until each piece meets acceptance criteria (Ralph-style where useful); chore polishes; optional reviewer pass is separate from the writer. PRs follow single responsibility. Repeat until all pieces are done.
 6. **PRs + CI** — Flow continues until PRs exist, pass CI (auto-fix when possible), and are ready for your review. Scope creep → human approval required before continuing.
 
+## Feedback and diagnose (optional)
+
+- **`/craft:feedback <text>`** — Appends a line to `.craft/feedback.jsonl` (gitignored; capped in `workflow.sh`).
+- **`/craft:diagnose`** — Sets `phase` to `diagnosing`; proposals for hooks/workflow only—**no automatic hook edits**.
+- **`/craft:compact`** — Sets `phase` to `compacting`; merge themes into `.craft/possible_conventions.json`.
+
+See [docs/conventions-and-feedback.md](docs/conventions-and-feedback.md). Promoted rules live in **`.craft/conventions.yaml`** after human review.
+
 ## Docs
 
 | Doc | Purpose |
 |-----|---------|
 | [docs/workflow-state.md](docs/workflow-state.md) | State machine, phases, and state schema for the workflow. |
+| [docs/conventions-and-feedback.md](docs/conventions-and-feedback.md) | Feedback log, diagnose, compact, and conventions files. |
 | [docs/question-flow-constraints.md](docs/question-flow-constraints.md) | One-question / limited-question flow to avoid context loss. |
 
 `docs/archive/` is gitignored so you can keep local design references (e.g. vetting, memory-and-reflection) there without publishing them when you use the repo across machines.

@@ -1,0 +1,9 @@
+# Promoted workflow conventions (committed). Add entries after reviewing /craft:diagnose proposals.
+# Hooks are never auto-edited — only explicit human changes.
+#
+# Example:
+# conventions:
+#   - summary: "Run tests before claiming a piece is complete"
+#     enforcement_hint: "Craft test_run substep; CI on PR"
+
+conventions: []
