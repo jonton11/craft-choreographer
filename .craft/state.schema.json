@@ -6,7 +6,7 @@
   "properties": {
     "phase": {
       "type": "string",
-      "enum": ["idle", "investigating", "planning", "awaiting_approval", "executing", "done"],
+      "enum": ["idle", "investigating", "planning", "awaiting_approval", "executing", "done", "diagnosing", "compacting"],
       "description": "Current workflow phase"
     },
     "initial_prompt": {
@@ -80,6 +80,14 @@
       "type": "string",
       "format": "date-time",
       "description": "ISO 8601 timestamp of last state update"
+    },
+    "last_diagnose_output": {
+      "type": "string",
+      "description": "Structured proposals from the last /craft:diagnose run (human applies hook changes)"
+    },
+    "last_compact_output": {
+      "type": "string",
+      "description": "Notes from the last /craft:compact run"
     }
   },
   "required": ["phase"]
