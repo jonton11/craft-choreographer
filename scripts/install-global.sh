@@ -154,7 +154,8 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
 
    - **planning**: You are the Planner. Load the instructions from `.craft/prompts/planner.md`. Use `investigation_output` and `initial_prompt` from state. Produce a plan with discrete pieces, order, and acceptance criteria per piece. Include a **refined_goal** (one or two clear sentences) in the plan. When writing state: set `plan_output` to the full plan, set `refined_goal` to that refined goal text (so execution agents have a single clear goal statement), and set `phase` to `awaiting_approval`.
 
-   - **awaiting_approval**: Present the plan (from `plan_output`) to the user. Ask them to reply with **approve** to continue, or to provide edits. Do not spawn any execution until they approve.
+   - **awaiting_approval**: Present the plan (from `plan_output`) to the user. **You must tell them** to accept by sending exactly **`/craft:approve`** (the hook recognizes nothing else). Do **not** instruct them to use only natural-language approval as a substitute for that command. For plan edits, they describe changes; you stay in this phase until the hook has advanced state (after **`/craft:approve`**). Do not spawn execution until `phase` is **`executing`**.
+     - **Ambiguous approval:** If their message **sounds like** they want to approve (e.g. “approve”, “yes”, “go ahead”, “looks good”, “ship it”, “lgtm”) but is **not** exactly **`/craft:approve`**, do **not** treat the plan as approved and do **not** set `phase` to **`executing`**. Ask a short clarifying question: e.g. whether they mean to approve this plan. Explain that **only** sending the exact command **`/craft:approve`** updates state via the hook—you cannot approve on their behalf. Tell them to send **`/craft:approve`** in their next message to proceed. If they were **not** trying to approve (e.g. they want edits), continue in **`awaiting_approval`** and address edits.
 
    - **executing**: Use `executing_substep` in state. Default order per piece: `writer` → `chore` → `test_run`. Optional: insert **`review`** between writer and chore. For the current piece (index `piece_index` from the `pieces` array):
      - **writer**: Load `.craft/prompts/writer.md`, implement the piece until acceptance criteria are met (Ralph-style: keep going until done). When done, write output to `last_step_output` and set `executing_substep` to `chore`, **or** to `review` if this project uses an explicit review pass before chore.
@@ -166,13 +167,13 @@ You are in Craft Choreographer mode. The user has triggered the workflow (they m
 
    - **done**: Summarize what was accomplished. Optionally tell the user they can run `/craft <new goal>` to start again.
 
-3. **Scope creep**: If at any time the work goes outside the approved plan, set `scope_creep_detected` to `true` in state and set `phase` to `awaiting_approval`. Tell the user and wait for approval before continuing.
+3. **Scope creep**: If at any time the work goes outside the approved plan, set `scope_creep_detected` to `true` in state and set `phase` to `awaiting_approval`. Use the same **ambiguous approval** rules as above: natural-language that sounds like “go ahead” does not advance state; only **`/craft:approve`** does—clarify and redirect if needed.
 
 4. **State updates**: When you write back to `.craft/state.json`, merge with the existing object so you do not remove other keys. Read the file, update only the keys you are changing (e.g. `investigation_output`, `phase`), then write the full object back.
 
 ## User message
 
-The user's message (after `/craft` or in follow-up) may contain their goal, or "approve", or a request. Use it together with the state to decide your next action.
+The user's message may contain `/craft <goal>`, **`/craft:approve`**, or other text. Do not treat natural-language approval as sufficient for advancing the workflow. If `phase` is **`awaiting_approval`** and they did not send **`/craft:approve`** but their wording suggests approval, clarify and point them to **`/craft:approve`** (see **Ambiguous approval** above). Only after the hook has run (user sent **`/craft:approve`**) will state show **`executing`**—verify `phase` in `.craft/state.json` before running execution work.
 SKILL_EOF
   echo "Claude Code: skill -> $CLAUDE_SKILL"
 fi
