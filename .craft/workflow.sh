@@ -24,6 +24,9 @@ if [[ -d "$ROOT" ]]; then
   ROOT="$(cd "$ROOT" && pwd)"
 fi
 STATE_PATH="$ROOT/.craft/state.json"
+FEEDBACK_FILE="$ROOT/.craft/feedback.jsonl"
+POSSIBLE_FILE="$ROOT/.craft/possible_conventions.json"
+FEEDBACK_MAX=50
 # Prompts: use project's .craft/prompts if present, else install dir (global "use anywhere" mode)
 if [[ -d "$ROOT/.craft/prompts" ]]; then
   PROMPTS_PATH="$ROOT/.craft/prompts"
@@ -67,6 +70,37 @@ is_craft_approve() {
   local msg
   msg=$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\n' | xargs)
   [[ "$msg" == "/craft:approve" ]]
+}
+
+craft_norm_lower() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | tr -d '\n' | xargs
+}
+
+is_craft_diagnose() {
+  [[ "$(craft_norm_lower "$1")" == "/craft:diagnose" ]]
+}
+
+is_craft_compact() {
+  [[ "$(craft_norm_lower "$1")" == "/craft:compact" ]]
+}
+
+is_craft_feedback_cmd() {
+  local m
+  m=$(craft_norm_lower "$1")
+  [[ "$m" == /craft:feedback || "$m" == /craft:feedback[[:space:]]* ]]
+}
+
+append_feedback_line() {
+  local text="$1"
+  mkdir -p "$(dirname "$FEEDBACK_FILE")"
+  local line
+  line=$(jq -n --arg t "$text" '{ts: (now | strftime("%Y-%m-%dT%H:%M:%SZ")), text: $t}')
+  echo "$line" >> "$FEEDBACK_FILE"
+  local cnt
+  cnt=$(wc -l < "$FEEDBACK_FILE" | tr -d ' ')
+  if [[ "${cnt:-0}" -gt "$FEEDBACK_MAX" ]]; then
+    tail -n "$FEEDBACK_MAX" "$FEEDBACK_FILE" > "${FEEDBACK_FILE}.tmp" && mv "${FEEDBACK_FILE}.tmp" "$FEEDBACK_FILE"
+  fi
 }
 
 # Fill template placeholders from state (safe for JSON string)
@@ -116,12 +150,29 @@ if [[ "$PHASE" == "awaiting_approval" ]] && is_craft_approve "$PROMPT"; then
   PHASE="executing"
 fi
 
-# Detect /craft <goal> and initialize workflow (not /craft:approve)
-if [[ "$PROMPT" == /craft* ]] && ! is_craft_approve "$PROMPT"; then
-  # Extract goal: rest of line after /craft
-  GOAL=$(echo "$PROMPT" | sed -n 's|^/craft[[:space:]]*||p' | xargs)
-  state_set "{\"phase\":\"investigating\",\"initial_prompt\":$(jq -n --arg g "$GOAL" '$g'),\"approved\":false,\"piece_index\":0,\"executing_substep\":\"writer\"}"
+if is_craft_feedback_cmd "$PROMPT"; then
+  FB_TEXT=$(echo "$PROMPT" | sed 's|^[[:space:]]*||' | sed 's|^[Cc][Rr][Aa][Ff][Tt]:[Ff][Ee][Ee][Dd][Bb][Aa][Cc][Kk][[:space:]]*||')
+  append_feedback_line "${FB_TEXT:- }"
   PHASE=$(state_get "phase")
+fi
+
+if is_craft_diagnose "$PROMPT"; then
+  state_set '{"phase":"diagnosing"}'
+  PHASE="diagnosing"
+fi
+
+if is_craft_compact "$PROMPT"; then
+  state_set '{"phase":"compacting"}'
+  PHASE="compacting"
+fi
+
+# /craft or /craft <goal> — not colon subcommands (/craft:*)
+if [[ "$PROMPT" == /craft ]] || [[ "$PROMPT" == /craft[[:space:]]* ]]; then
+  if [[ "$PROMPT" != /craft:* ]]; then
+    GOAL=$(echo "$PROMPT" | sed -n 's|^/craft[[:space:]]*||p' | xargs)
+    state_set "{\"phase\":\"investigating\",\"initial_prompt\":$(jq -n --arg g "$GOAL" '$g'),\"approved\":false,\"piece_index\":0,\"executing_substep\":\"writer\"}"
+    PHASE=$(state_get "phase")
+  fi
 fi
 
 # Cursor: always allow prompt to proceed; orchestrator in craft.md handles phase
@@ -135,7 +186,9 @@ if [[ "$HOOK_EVENT" != "UserPromptSubmit" ]]; then
   exit 0
 fi
 
-if [[ "$PHASE" == "idle" ]] && [[ "$PROMPT" != /craft* ]]; then
+if [[ "$PHASE" == "diagnosing" ]] || [[ "$PHASE" == "compacting" ]]; then
+  :
+elif [[ "$PHASE" == "idle" ]] && [[ "$PROMPT" != /craft* ]]; then
   exit 0
 fi
 
@@ -179,6 +232,44 @@ case "$PHASE" in
         [[ -f "$PROMPTS_PATH/writer.md" ]] && TEMPLATE=$(cat "$PROMPTS_PATH/writer.md") && FILLED=$(fill_template "$TEMPLATE") && claude_output_context "$FILLED"
         ;;
     esac
+    ;;
+  diagnosing)
+    if [[ -f "$PROMPTS_PATH/diagnose.md" ]]; then
+      FB=$(tail -n 30 "$FEEDBACK_FILE" 2>/dev/null || echo "(empty)")
+      POSS=$(cat "$POSSIBLE_FILE" 2>/dev/null || echo "[]")
+      HOOKS=$(jq -c . "$ROOT/.cursor/hooks.json" 2>/dev/null || echo "{}")
+      WF=$(head -n 80 "$ROOT/.craft/workflow.sh" 2>/dev/null || echo "(missing)")
+      TEMPLATE=$(cat "$PROMPTS_PATH/diagnose.md")
+      COMBINED="$TEMPLATE
+
+## Data: feedback.jsonl (last 30 lines)
+$FB
+
+## Data: possible_conventions.json
+$POSS
+
+## Data: .cursor/hooks.json
+$HOOKS
+
+## Data: workflow.sh (first 80 lines)
+$WF"
+      claude_output_context "$COMBINED"
+    fi
+    ;;
+  compacting)
+    if [[ -f "$PROMPTS_PATH/compact.md" ]]; then
+      FB=$(tail -n 50 "$FEEDBACK_FILE" 2>/dev/null || echo "(empty)")
+      POSS=$(cat "$POSSIBLE_FILE" 2>/dev/null || echo "[]")
+      TEMPLATE=$(cat "$PROMPTS_PATH/compact.md")
+      COMBINED="$TEMPLATE
+
+## Data: feedback.jsonl (last 50 lines)
+$FB
+
+## Data: possible_conventions.json (merge into this file when done)
+$POSS"
+      claude_output_context "$COMBINED"
+    fi
     ;;
   *)
     exit 0
